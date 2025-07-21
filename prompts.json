@@ -1,0 +1,44 @@
+[
+  {
+    "prompt": "a beautiful landscape with mountains and a lake, sunset, digital art, masterpiece, high quality",
+    "negative_prompt": "blurry, low quality, distorted, ugly, bad anatomy",
+    "params": {
+      "steps": 25,
+      "cfg_scale": 8,
+      "width": 768,
+      "height": 512,
+      "sampler_name": "DPM++ 2M Karras"
+    }
+  },
+  {
+    "prompt": "cute cat sitting on a windowsill, soft lighting, photography, detailed fur",
+    "negative_prompt": "blurry, low quality, cartoon, anime",
+    "params": {
+      "steps": 20,
+      "cfg_scale": 7,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "prompt": "futuristic city skyline at night, neon lights, cyberpunk style, detailed architecture",
+    "negative_prompt": "blurry, low quality, distorted, old fashioned",
+    "params": {
+      "steps": 30,
+      "cfg_scale": 9,
+      "width": 768,
+      "height": 512,
+      "sampler_name": "Euler a"
+    }
+  },
+  {
+    "prompt": "portrait of a wise old wizard, long beard, magical staff, fantasy art",
+    "negative_prompt": "blurry, low quality, modern clothing, realistic",
+    "params": {
+      "steps": 25,
+      "cfg_scale": 8,
+      "width": 512,
+      "height": 768
+    }
+  }
+]
