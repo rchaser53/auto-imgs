@@ -52,6 +52,39 @@ class StableDiffusionAPI {
         }
     }
     
+    async getAvailableModels() {
+        try {
+            const response = await this.client.get('/sdapi/v1/sd-models');
+            return response.data;
+        } catch (error) {
+            console.error('モデル一覧の取得に失敗:', error.message);
+            return [];
+        }
+    }
+    
+    async getCurrentModel() {
+        try {
+            const response = await this.client.get('/sdapi/v1/options');
+            return response.data.sd_model_checkpoint;
+        } catch (error) {
+            console.error('現在のモデルの取得に失敗:', error.message);
+            return null;
+        }
+    }
+    
+    async setModel(modelName) {
+        try {
+            const response = await this.client.post('/sdapi/v1/options', {
+                sd_model_checkpoint: modelName
+            });
+            console.log(`モデルを変更しました: ${modelName}`);
+            return true;
+        } catch (error) {
+            console.error('モデルの変更に失敗:', error.message);
+            return false;
+        }
+    }
+    
     async generateImage(prompt, negativePrompt = '', customParams = {}) {
         // デフォルトパラメータ
         const defaultParams = {
@@ -70,12 +103,42 @@ class StableDiffusionAPI {
             enable_hr: false,
         };
         
-        // カスタムパラメータで上書き
-        const params = { ...defaultParams, ...customParams };
+        // カスタムパラメータで上書き（modelパラメータは除外）
+        const { model, ...apiParams } = customParams;
+        const params = { ...defaultParams, ...apiParams };
+        
+        // モデルが指定されている場合は変更
+        if (model && model !== await this.getCurrentModel()) {
+            console.log(`モデルを切り替え中: ${model}`);
+            await this.setModel(model);
+            // モデル変更後は少し待機
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        
+        // デバッグ用ログ
+        console.log('=== 画像生成パラメータ ===');
+        console.log(`プロンプト: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}`);
+        console.log(`ネガティブプロンプト: ${negativePrompt.substring(0, 50)}${negativePrompt.length > 50 ? '...' : ''}`);
+        console.log(`ステップ数: ${params.steps}`);
+        console.log(`CFGスケール: ${params.cfg_scale}`);
+        console.log(`サイズ: ${params.width}x${params.height}`);
+        console.log(`サンプラー: ${params.sampler_name}`);
         
         try {
             console.log(`画像生成中: ${prompt.substring(0, 50)}...`);
             const response = await this.client.post(this.apiEndpoint, params);
+            
+            // レスポンスの詳細チェック
+            if (response.data) {
+                console.log('✓ API応答受信');
+                if (response.data.images && response.data.images.length > 0) {
+                    console.log(`✓ 生成画像数: ${response.data.images.length}`);
+                    console.log(`画像データサイズ: ${response.data.images[0].length} 文字`);
+                } else {
+                    console.log('⚠ 画像データが空です');
+                }
+            }
+            
             return response.data;
         } catch (error) {
             console.error('API呼び出しエラー:', error.message);
@@ -152,6 +215,15 @@ class ImageGenerationBatch {
         this.api = new StableDiffusionAPI();
     }
     
+    async listAvailableModels() {
+        const models = await this.api.getAvailableModels();
+        console.log('\n=== 利用可能なモデル ===');
+        models.forEach((model, index) => {
+            console.log(`${index + 1}. ${model.title} (${model.model_name})`);
+        });
+        return models;
+    }
+    
     async runBatch(promptsConfig) {
         // API接続チェック
         if (!(await this.api.checkApiStatus())) {
@@ -163,6 +235,12 @@ class ImageGenerationBatch {
         
         console.log('Stable Diffusion WebUI APIに接続しました');
         console.log(`出力ディレクトリ: ${this.api.outputDir}`);
+        
+        // 現在のモデルを表示
+        const currentModel = await this.api.getCurrentModel();
+        if (currentModel) {
+            console.log(`現在のモデル: ${currentModel}`);
+        }
         
         let totalImages = 0;
         let successfulImages = 0;
@@ -189,10 +267,12 @@ class ImageGenerationBatch {
                     totalImages++;
                     
                     // メタデータ準備
+                    const currentModel = await this.api.getCurrentModel();
                     const metadata = {
                         prompt: prompt,
                         negative_prompt: negativePrompt,
                         parameters: params,
+                        model: currentModel,
                         generation_time: new Date().toISOString(),
                         batch_index: i + 1,
                         image_index: j + 1
