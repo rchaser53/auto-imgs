@@ -88,13 +88,31 @@ class StableDiffusionAPI {
     
     async saveImage(imageData, prompt, metadata = null) {
         try {
+            console.log('=== 画像保存処理 ===');
+            console.log(`受信データサイズ: ${imageData.length} 文字`);
+            
             // Base64デコード
             const imageBuffer = Buffer.from(imageData, 'base64');
+            console.log(`デコード後バッファサイズ: ${imageBuffer.length} バイト`);
             
-            // ファイル名生成
-            const timestamp = new Date().toISOString()
+            // 画像フォーマットチェック
+            const header = imageBuffer.slice(0, 8);
+            const isPNG = header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47;
+            const isJPEG = header[0] === 0xFF && header[1] === 0xD8;
+            const isWebP = header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46;
+            
+            console.log(`画像フォーマット: ${isPNG ? 'PNG' : isJPEG ? 'JPEG' : isWebP ? 'WebP' : '不明'}`);
+            
+            if (!isPNG && !isJPEG && !isWebP) {
+                console.warn('⚠ 認識できない画像フォーマットです');
+                console.log(`ヘッダー: ${Array.from(header).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')}`);
+            }
+            
+            // ファイル名生成（より読みやすい形式）
+            const now = new Date();
+            const timestamp = now.toISOString()
+                .slice(0, 19)
                 .replace(/[-:]/g, '')
-                .replace(/\..+/, '')
                 .replace('T', '_');
             
             // プロンプトから安全なファイル名を生成
@@ -107,6 +125,8 @@ class StableDiffusionAPI {
             const filename = `${this.imagePrefix}${timestamp}_${safePrompt}.png`;
             const filepath = path.join(this.outputDir, filename);
             
+            console.log(`保存先: ${filepath}`);
+            
             // 画像を保存
             await fs.writeFile(filepath, imageBuffer);
             
@@ -114,9 +134,10 @@ class StableDiffusionAPI {
             if (metadata) {
                 const metadataPath = filepath.replace('.png', '.json');
                 await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
+                console.log(`メタデータ保存: ${metadataPath}`);
             }
             
-            console.log(`画像を保存しました: ${filepath}`);
+            console.log(`✓ 画像を保存しました: ${filepath}`);
             return filepath;
             
         } catch (error) {
